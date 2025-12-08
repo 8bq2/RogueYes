@@ -22,6 +22,8 @@ local Functions = {
 		if (Character:FindFirstChild("Niggerlight")) then
 			Character.Niggerlight:Destroy();
 		end
+		
+		if (Character ~= myCharacter) then
 
 		local Highlight = Instance.new("Highlight");
 		Highlight.Parent = Character
@@ -88,7 +90,8 @@ local Functions = {
 					end
 				end
 			end)
-		end)
+			end)
+			end
 	end,
 
 	ItemESP = function()
