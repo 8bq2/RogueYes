@@ -1,0 +1,26 @@
+local Trinkets = workspace:FindFirstChild("Trinkets");
+if (not Trinkets) then
+	warn("EXPLOIT FAILED - COULDNT FIND TRINKETS FOLDER IN WORKSPACE.");
+	return
+end
+
+Trinkets.ChildAdded:Connect(function(Child: Instance)
+	if (Child.Name:len() < 3) then
+		warn(string.format("GETTING THE TRINKET %q FAILED, TRINKETS NAME SEEMS TO BE FAKE.", Child.Name));
+		return
+	end
+	
+	local BillboardUI = Instance.new("BillboardGui")
+	local TextLabel = Instance.new("TextLabel");
+	
+	BillboardUI.Parent = Child
+	BillboardUI.ResetOnSpawn = false
+	BillboardUI.MaxDistance = math.huge
+	BillboardUI.Adornee = Child
+	BillboardUI.AlwaysOnTop = true
+	
+	TextLabel.Parent = BillboardUI
+	TextLabel.Size = UDim2.new(1, 0, 1, 0);
+	TextLabel.Text = Child.Name
+	TextLabel.BackgroundTransparency = 1
+end);
