@@ -2,6 +2,9 @@
 local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 
+local Me = Players.LocalPlayer
+local myCharacter = Me.Character or Me.CharacterAdded:Wait()
+
 local LiveFolder = workspace:FindFirstChild("Live")
 if (not LiveFolder) then
 	print("nigger script found no nigger live folder NMIGGER")
@@ -14,28 +17,83 @@ local _Flags = {
 }
 
 local Functions = {
-	PlrESP = function(Character, ...) : ()
+	PlrESP = function(Character: Model, ...) : ()
 		if (not _Flags["CanPlrESP"]) then return end
 		if (Character:FindFirstChild("Niggerlight")) then
 			Character.Niggerlight:Destroy();
 		end
-		
+
 		local Highlight = Instance.new("Highlight");
 		Highlight.Parent = Character
 		Highlight.Adornee = Character
 		Highlight.Name = "Niggerlight"
-				
+
 		Highlight.FillTransparency = 1
-				
+
 		Highlight.OutlineColor = Color3.new(1, 0, 0)
 		Highlight.OutlineTransparency = 0
-			
+
 		Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		
+		local niggerbillboard = Instance.new("BillboardGui")
+		niggerbillboard.Adornee = Character:FindFirstChild("Head")
+		niggerbillboard.Parent = Character:FindFirstChild("Head")
+		niggerbillboard.AlwaysOnTop = true
+		niggerbillboard.MaxDistance = math.huge
+		niggerbillboard.Size = UDim2.new(0, 100, 0, 30)
+		niggerbillboard.StudsOffset = Vector3.new(0, 1.5 ,0)
+		
+		local textlabel = Instance.new("TextLabel")
+		textlabel.Parent = niggerbillboard
+		textlabel.BackgroundTransparency = 1
+		textlabel.Size = UDim2.new(1, 0,1, 0)
+		textlabel.Text = "Distance: "
+		textlabel.TextColor = Color3.fromRGB(50, 255, 190)
+		textlabel.TextScaled = true
+		
+		local uistroke = Instance.new("UIStroke")
+		uistroke.Parent = textlabel
+		uistroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+		uistroke.Color = Color3.new(0, 0, 0)
+		uistroke.Thickness = 1
+		uistroke.Transparency = 0
+		uistroke.LineJoinMode = Enum.LineJoinMode.Round
+		uistroke.StrokeSizingMode = Enum.StrokeSizingMode.FixedSize
+		
+		local connection
+		task.spawn(function()
+			connection = game:GetService("RunService").Heartbeat:Connect(function()
+				if not Character or not Character.Parent then
+					connection:Disconnect()
+					return
+				end
+
+				local localChar = myCharacter
+				if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
+					textLabel.Text = "Waiting..."
+					return
+				end
+
+				local localPosition = localChar:GetPivot().Position
+				local targetPosition = Character:GetPivot().Position
+
+				local distance = (localPosition - targetPosition).Magnitude
+				textLabel.Text = string.format("Dist: %d studs", math.floor(distance + 0.5))
+			end)
+
+			Character.AncestryChanged:Connect(function(_, parent)
+				if not parent then
+					if connection then
+						connection:Disconnect()
+					end
+				end
+			end)
+		end)
 	end,
-	
+
 	ItemESP = function()
 		if (not _Flags["CanTrinketESP"]) then return end
-		
+
 		for _, trinket in pairs(workspace:GetChildren()) do
 			if (trinket:IsA("BasePart")) or (trinket:IsA("MeshPart")) then
 				if (trinket:FindFirstChildOfClass("StringValue")) and (trinket:FindFirstChildOfClass("StringValue").Name == "ID") then
@@ -50,7 +108,7 @@ local Functions = {
 				end
 			end
 		end
-		
+
 		workspace.ChildAdded:Connect(function(Child)
 			if (Child:IsA("BasePart")) or (Child:IsA("MeshPart")) then
 				if (Child:FindFirstChildOfClass("StringValue")) and (Child:FindFirstChildOfClass("StringValue").Name == "ID") then
@@ -86,12 +144,12 @@ task.spawn(Functions.ItemESP)
 
 UIS.InputBegan:Connect(function(input, gpe)
 	if (gpe) then return end
-	
+
 	if (input.KeyCode == Enum.KeyCode.Z) then
 		if (_Flags["CanPlrESP"]) or (_Flags["CanTrinketESP"]) then
 			_Flags["CanPlrESP"] = false
 			_Flags["CanTrinketESP"] = false
-			
+
 			for _, Model: Model in pairs(LiveFolder:GetChildren()) do
 				if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
 					local hg = Model:FindFirstChildOfClass("Highlight")
@@ -100,7 +158,7 @@ UIS.InputBegan:Connect(function(input, gpe)
 					end
 				end
 			end
-			
+
 			for _, trinket in pairs(workspace:GetChildren()) do
 				if (trinket:IsA("BasePart")) or (trinket:IsA("MeshPart")) then
 					if (trinket:FindFirstChildOfClass("StringValue")) and (trinket:FindFirstChildOfClass("StringValue").Name == "ID") then
@@ -111,17 +169,17 @@ UIS.InputBegan:Connect(function(input, gpe)
 					end
 				end
 			end
-			
+
 		else
 			_Flags["CanPlrESP"] = true
 			_Flags["CanTrinketESP"] = true
-			
+
 			for _, Model: Model in pairs(LiveFolder:GetChildren()) do
 				if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
 					task.spawn(Functions.PlrESP, Model)
 				end
 			end
-			
+
 			task.spawn(Functions.ItemESP)
 		end
 	end
