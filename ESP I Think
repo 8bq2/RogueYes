@@ -1,26 +1,128 @@
-local Trinkets = workspace:FindFirstChild("Trinkets");
-if (not Trinkets) then
-	warn("EXPLOIT FAILED - COULDNT FIND TRINKETS FOLDER IN WORKSPACE.");
+
+local UIS = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+
+local LiveFolder = workspace:FindFirstChild("Live")
+if (not LiveFolder) then
+	print("nigger script found no nigger live folder NMIGGER")
 	return
 end
 
-Trinkets.ChildAdded:Connect(function(Child: Instance)
-	if (Child.Name:len() < 3) then
-		warn(string.format("GETTING THE TRINKET %q FAILED, TRINKETS NAME SEEMS TO BE FAKE.", Child.Name));
-		return
+local _Flags = {
+	["CanPlrESP"] = true,
+	["CanTrinketESP"] = true,
+}
+
+local Functions = {
+	PlrESP = function(Character, ...) : ()
+		if (not _Flags["CanPlrESP"]) then return end
+		if (Character:FindFirstChild("Niggerlight")) then
+			Character.Niggerlight:Destroy();
+		end
+		
+		local Highlight = Instance.new("Highlight");
+		Highlight.Parent = Character
+		Highlight.Adornee = Character
+		Highlight.Name = "Niggerlight"
+				
+		Highlight.FillTransparency = 1
+				
+		Highlight.OutlineColor = Color3.new(1, 0, 0)
+		Highlight.OutlineTransparency = 0
+			
+		Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	end,
+	
+	ItemESP = function()
+		if (not _Flags["CanTrinketESP"]) then return end
+		
+		for _, trinket in pairs(workspace:GetChildren()) do
+			if (trinket:IsA("BasePart")) or (trinket:IsA("MeshPart")) then
+				if (trinket:FindFirstChildOfClass("StringValue")) and (trinket:FindFirstChildOfClass("StringValue").Name == "ID") then
+					local niggerlight = Instance.new("Highlight")
+					niggerlight.Name = "niggerlight"
+					niggerlight.Parent = trinket
+					niggerlight.Adornee = trinket
+					niggerlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+					niggerlight.FillTransparency = 1
+					niggerlight.OutlineColor = Color3.new(0, 1, 0)
+					niggerlight.OutlineTransparency = 0
+				end
+			end
+		end
+		
+		workspace.ChildAdded:Connect(function(Child)
+			if (Child:IsA("BasePart")) or (Child:IsA("MeshPart")) then
+				if (Child:FindFirstChildOfClass("StringValue")) and (Child:FindFirstChildOfClass("StringValue").Name == "ID") then
+					local niggerlight = Instance.new("Highlight")
+					niggerlight.Name = "niggerlight"
+					niggerlight.Parent = Child
+					niggerlight.Adornee = Child
+					niggerlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+					niggerlight.FillTransparency = 1
+					niggerlight.OutlineColor = Color3.new(0, 1, 0)
+					niggerlight.OutlineTransparency = 0
+				end
+			end
+		end)
+	end,
+};
+
+for _, Model: Model in pairs(LiveFolder:GetChildren()) do
+	if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
+		task.spawn(Functions.PlrESP, Model)
 	end
-	
-	local BillboardUI = Instance.new("BillboardGui")
-	local TextLabel = Instance.new("TextLabel");
-	
-	BillboardUI.Parent = Child
-	BillboardUI.ResetOnSpawn = false
-	BillboardUI.MaxDistance = math.huge
-	BillboardUI.Adornee = Child
-	BillboardUI.AlwaysOnTop = true
-	
-	TextLabel.Parent = BillboardUI
-	TextLabel.Size = UDim2.new(1, 0, 1, 0);
-	TextLabel.Text = Child.Name
-	TextLabel.BackgroundTransparency = 1
+end
+
+Players.PlayerAdded:Connect(function(Plr)
+	for _, Model: Model in pairs(LiveFolder:GetChildren()) do
+		if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
+			task.spawn(Functions.PlrESP, Model)
+		end
+	end
 end);
+
+task.spawn(Functions.ItemESP)
+
+UIS.InputBegan:Connect(function(input, gpe)
+	if (gpe) then return end
+	
+	if (input.KeyCode == Enum.KeyCode.Z) then
+		if (_Flags["CanPlrESP"]) or (_Flags["CanTrinketESP"]) then
+			_Flags["CanPlrESP"] = false
+			_Flags["CanTrinketESP"] = false
+			
+			for _, Model: Model in pairs(LiveFolder:GetChildren()) do
+				if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
+					local hg = Model:FindFirstChildOfClass("Highlight")
+					if hg then
+						hg:Destroy()
+					end
+				end
+			end
+			
+			for _, trinket in pairs(workspace:GetChildren()) do
+				if (trinket:IsA("BasePart")) or (trinket:IsA("MeshPart")) then
+					if (trinket:FindFirstChildOfClass("StringValue")) and (trinket:FindFirstChildOfClass("StringValue").Name == "ID") then
+						local hg = trinket:FindFirstChildOfClass("Highlight")
+						if hg then
+							hg:Destroy()
+						end
+					end
+				end
+			end
+			
+		else
+			_Flags["CanPlrESP"] = true
+			_Flags["CanTrinketESP"] = true
+			
+			for _, Model: Model in pairs(LiveFolder:GetChildren()) do
+				if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
+					task.spawn(Functions.PlrESP, Model)
+				end
+			end
+			
+			task.spawn(Functions.ItemESP)
+		end
+	end
+end)
