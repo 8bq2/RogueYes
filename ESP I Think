@@ -1,189 +1,207 @@
-
 local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local Me = Players.LocalPlayer
 local myCharacter = Me.Character or Me.CharacterAdded:Wait()
 
 local LiveFolder = workspace:FindFirstChild("Live")
 if (not LiveFolder) then
-	print("nigger script found no nigger live folder NMIGGER")
-	return
+    print("Live folder not found")
+    return
 end
 
 local _Flags = {
-	["CanPlrESP"] = true,
-	["CanTrinketESP"] = true,
+    ["CanPlrESP"] = true,
+    ["CanTrinketESP"] = true,
+}
+
+-- Store connections to manage them
+local _Connections = {
+    PlrESP = {},
+    ItemESP = nil
 }
 
 local Functions = {
-	PlrESP = function(Character: Model, ...) : ()
-		if (not _Flags["CanPlrESP"]) then return end
-		if (Character:FindFirstChild("Niggerlight")) then
-			Character.Niggerlight:Destroy();
-		end
-		
-		if (Character ~= myCharacter) then
+    PlrESP = function(Character: Model)
+        if (not _Flags["CanPlrESP"]) then return end
+        if (Character:FindFirstChild("HighlightESP")) then
+            Character.HighlightESP:Destroy()
+        end
 
-		local Highlight = Instance.new("Highlight");
-		Highlight.Parent = Character
-		Highlight.Adornee = Character
-		Highlight.Name = "Niggerlight"
+        if (Character == myCharacter) then return end
 
-		Highlight.FillTransparency = 1
+        local Highlight = Instance.new("Highlight")
+        Highlight.Parent = Character
+        Highlight.Adornee = Character
+        Highlight.Name = "HighlightESP"
+        Highlight.FillTransparency = 1
+        Highlight.OutlineColor = Color3.new(1, 0, 0)
+        Highlight.OutlineTransparency = 0
+        Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 
-		Highlight.OutlineColor = Color3.new(1, 0, 0)
-		Highlight.OutlineTransparency = 0
+        local head = Character:WaitForChild("Head", 5)
+        if not head then return end
+        
+        local billboard = Instance.new("BillboardGui")
+        billboard.Adornee = head
+        billboard.Parent = head
+        billboard.AlwaysOnTop = true
+        billboard.MaxDistance = math.huge
+        billboard.Size = UDim2.new(0, 100, 0, 30)
+        billboard.StudsOffset = Vector3.new(0, 1.5, 0)
 
-		Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		
-		local niggerbillboard = Instance.new("BillboardGui")
-		niggerbillboard.Adornee = Character:FindFirstChild("Head")
-		niggerbillboard.Parent = Character:FindFirstChild("Head")
-		niggerbillboard.AlwaysOnTop = true
-		niggerbillboard.MaxDistance = math.huge
-		niggerbillboard.Size = UDim2.new(0, 100, 0, 30)
-		niggerbillboard.StudsOffset = Vector3.new(0, 1.5 ,0)
-		
-		local textlabel = Instance.new("TextLabel")
-		textlabel.Parent = niggerbillboard
-		textlabel.BackgroundTransparency = 1
-		textlabel.Size = UDim2.new(1, 0,1, 0)
-		textlabel.Text = "Distance: "
-		textlabel.TextColor = Color3.fromRGB(50, 255, 190)
-		textlabel.TextScaled = true
-		
-		local uistroke = Instance.new("UIStroke")
-		uistroke.Parent = textlabel
-		uistroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-		uistroke.Color = Color3.new(0, 0, 0)
-		uistroke.Thickness = 1
-		uistroke.Transparency = 0
-		uistroke.LineJoinMode = Enum.LineJoinMode.Round
-		uistroke.StrokeSizingMode = Enum.StrokeSizingMode.FixedSize
-		
-		local connection
-		task.spawn(function()
-			connection = game:GetService("RunService").Heartbeat:Connect(function()
-				if not Character or not Character.Parent then
-					connection:Disconnect()
-					return
-				end
+        local textlabel = Instance.new("TextLabel")
+        textlabel.Parent = billboard
+        textlabel.BackgroundTransparency = 1
+        textlabel.Size = UDim2.new(1, 0, 1, 0)
+        textlabel.Text = "Distance: "
+        textlabel.TextColor = Color3.fromRGB(50, 255, 190)
+        textlabel.TextScaled = true
 
-				local localChar = myCharacter
-				if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
-					textLabel.Text = "Waiting..."
-					return
-				end
+        local uistroke = Instance.new("UIStroke")
+        uistroke.Parent = textlabel
+        uistroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+        uistroke.Color = Color3.new(0, 0, 0)
+        uistroke.Thickness = 1
+        uistroke.Transparency = 0
+        uistroke.LineJoinMode = Enum.LineJoinMode.Round
 
-				local localPosition = localChar:GetPivot().Position
-				local targetPosition = Character:GetPivot().Position
+        local connectionId = #_Connections.PlrESP + 1
+        local connection = RunService.Heartbeat:Connect(function()
+            if not Character or not Character.Parent or not myCharacter or not myCharacter:FindFirstChild("HumanoidRootPart") then
+                if _Connections.PlrESP[connectionId] then
+                    _Connections.PlrESP[connectionId]:Disconnect()
+                    _Connections.PlrESP[connectionId] = nil
+                end
+                return
+            end
 
-				local distance = (localPosition - targetPosition).Magnitude
-				textLabel.Text = string.format("Dist: %d studs", math.floor(distance + 0.5))
-			end)
+            local localPosition = myCharacter:GetPivot().Position
+            local targetPosition = Character:GetPivot().Position
+            local distance = (localPosition - targetPosition).Magnitude
+            textlabel.Text = string.format("Dist: %d studs", math.floor(distance + 0.5))
+        end)
+        
+        _Connections.PlrESP[connectionId] = connection
 
-			Character.AncestryChanged:Connect(function(_, parent)
-				if not parent then
-					if connection then
-						connection:Disconnect()
-					end
-				end
-			end)
-			end)
-			end
-	end,
+        Character.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                if _Connections.PlrESP[connectionId] then
+                    _Connections.PlrESP[connectionId]:Disconnect()
+                    _Connections.PlrESP[connectionId] = nil
+                end
+            end
+        end)
+    end,
 
-	ItemESP = function()
-		if (not _Flags["CanTrinketESP"]) then return end
+    ItemESP = function()
+        -- Clean up existing connection
+        if _Connections.ItemESP then
+            _Connections.ItemESP:Disconnect()
+            _Connections.ItemESP = nil
+        end
+        
+        -- Process existing items
+        for _, trinket in pairs(workspace:GetChildren()) do
+            if (trinket:IsA("BasePart") or trinket:IsA("MeshPart")) and trinket:FindFirstChild("ID") then
+                if _Flags["CanTrinketESP"] and not trinket:FindFirstChild("ItemESP") then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "ItemESP"
+                    highlight.Parent = trinket
+                    highlight.Adornee = trinket
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    highlight.FillTransparency = 1
+                    highlight.OutlineColor = Color3.new(0, 1, 0)
+                    highlight.OutlineTransparency = 0
+                elseif not _Flags["CanTrinketESP"] then
+                    local esp = trinket:FindFirstChild("ItemESP")
+                    if esp then
+                        esp:Destroy()
+                    end
+                end
+            end
+        end
 
-		for _, trinket in pairs(workspace:GetChildren()) do
-			if (trinket:IsA("BasePart")) or (trinket:IsA("MeshPart")) then
-				if (trinket:FindFirstChildOfClass("StringValue")) and (trinket:FindFirstChildOfClass("StringValue").Name == "ID") then
-					local niggerlight = Instance.new("Highlight")
-					niggerlight.Name = "niggerlight"
-					niggerlight.Parent = trinket
-					niggerlight.Adornee = trinket
-					niggerlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-					niggerlight.FillTransparency = 1
-					niggerlight.OutlineColor = Color3.new(0, 1, 0)
-					niggerlight.OutlineTransparency = 0
-				end
-			end
-		end
+        -- Set up new connection only if ESP is enabled
+        if _Flags["CanTrinketESP"] then
+            _Connections.ItemESP = workspace.ChildAdded:Connect(function(Child)
+                if (Child:IsA("BasePart") or Child:IsA("MeshPart")) and Child:FindFirstChild("ID") then
+                    task.wait(0.1) -- Wait a bit for item to fully load
+                    if _Flags["CanTrinketESP"] and not Child:FindFirstChild("ItemESP") then
+                        local highlight = Instance.new("Highlight")
+                        highlight.Name = "ItemESP"
+                        highlight.Parent = Child
+                        highlight.Adornee = Child
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.FillTransparency = 1
+                        highlight.OutlineColor = Color3.new(0, 1, 0)
+                        highlight.OutlineTransparency = 0
+                    end
+                end
+            end)
+        end
+    end,
+}
 
-		workspace.ChildAdded:Connect(function(Child)
-			if (Child:IsA("BasePart")) or (Child:IsA("MeshPart")) then
-				if (Child:FindFirstChildOfClass("StringValue")) and (Child:FindFirstChildOfClass("StringValue").Name == "ID") then
-					local niggerlight = Instance.new("Highlight")
-					niggerlight.Name = "niggerlight"
-					niggerlight.Parent = Child
-					niggerlight.Adornee = Child
-					niggerlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-					niggerlight.FillTransparency = 1
-					niggerlight.OutlineColor = Color3.new(0, 1, 0)
-					niggerlight.OutlineTransparency = 0
-				end
-			end
-		end)
-	end,
-};
-
-for _, Model: Model in pairs(LiveFolder:GetChildren()) do
-	if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
-		task.spawn(Functions.PlrESP, Model)
-	end
+-- Initialize ESP
+for _, Model in pairs(LiveFolder:GetChildren()) do
+    if Model:IsA("Model") and Players:FindFirstChild(Model.Name) then
+        task.spawn(Functions.PlrESP, Model)
+    end
 end
 
 Players.PlayerAdded:Connect(function(Plr)
-	for _, Model: Model in pairs(LiveFolder:GetChildren()) do
-		if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
-			task.spawn(Functions.PlrESP, Model)
-		end
-	end
-end);
+    Plr.CharacterAdded:Connect(function(Character)
+        task.wait(1) -- Wait for character to load into LiveFolder
+        local model = LiveFolder:FindFirstChild(Plr.Name)
+        if model and _Flags["CanPlrESP"] then
+            task.spawn(Functions.PlrESP, model)
+        end
+    end)
+end)
+
+LiveFolder.ChildAdded:Connect(function(Child)
+    task.wait(0.5)
+    if Child:IsA("Model") and Players:FindFirstChild(Child.Name) and _Flags["CanPlrESP"] then
+        task.spawn(Functions.PlrESP, Child)
+    end
+end)
 
 task.spawn(Functions.ItemESP)
 
 UIS.InputBegan:Connect(function(input, gpe)
-	if (gpe) then return end
+    if gpe then return end
 
-	if (input.KeyCode == Enum.KeyCode.Z) then
-		if (_Flags["CanPlrESP"]) or (_Flags["CanTrinketESP"]) then
-			_Flags["CanPlrESP"] = false
-			_Flags["CanTrinketESP"] = false
-
-			for _, Model: Model in pairs(LiveFolder:GetChildren()) do
-				if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
-					local hg = Model:FindFirstChildOfClass("Highlight")
-					if hg then
-						hg:Destroy()
-					end
-				end
-			end
-
-			for _, trinket in pairs(workspace:GetChildren()) do
-				if (trinket:IsA("BasePart")) or (trinket:IsA("MeshPart")) then
-					if (trinket:FindFirstChildOfClass("StringValue")) and (trinket:FindFirstChildOfClass("StringValue").Name == "ID") then
-						local hg = trinket:FindFirstChildOfClass("Highlight")
-						if hg then
-							hg:Destroy()
-						end
-					end
-				end
-			end
-
-		else
-			_Flags["CanPlrESP"] = true
-			_Flags["CanTrinketESP"] = true
-
-			for _, Model: Model in pairs(LiveFolder:GetChildren()) do
-				if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
-					task.spawn(Functions.PlrESP, Model)
-				end
-			end
-
-			task.spawn(Functions.ItemESP)
-		end
-	end
+    if input.KeyCode == Enum.KeyCode.Z then
+        _Flags["CanPlrESP"] = not _Flags["CanPlrESP"]
+        _Flags["CanTrinketESP"] = not _Flags["CanTrinketESP"]
+        
+        if not _Flags["CanPlrESP"] then
+            -- Clean up player ESP
+            for _, connection in pairs(_Connections.PlrESP) do
+                connection:Disconnect()
+            end
+            _Connections.PlrESP = {}
+            
+            for _, Model in pairs(LiveFolder:GetChildren()) do
+                if Model:IsA("Model") then
+                    local highlight = Model:FindFirstChild("HighlightESP")
+                    if highlight then
+                        highlight:Destroy()
+                    end
+                end
+            end
+        else
+            -- Re-enable player ESP
+            for _, Model in pairs(LiveFolder:GetChildren()) do
+                if Model:IsA("Model") and Players:FindFirstChild(Model.Name) then
+                    task.spawn(Functions.PlrESP, Model)
+                end
+            end
+        end
+        
+        -- Update item ESP
+        Functions.ItemESP()
+    end
 end)
