@@ -50,7 +50,7 @@ local Functions = {
 			textlabel.BackgroundTransparency = 1
 			textlabel.Size = UDim2.new(1, 0,1, 0)
 			textlabel.Text = "Distance: "
-			textlabel.TextColor = BrickColor.new("White")
+			textlabel.TextColor = BrickColor.new("White") or Color3.fromRGB(255, 255 ,255) or Color3.new(1, 1, 1)
 			textlabel.TextScaled = true
 
 			local uistroke = Instance.new("UIStroke")
