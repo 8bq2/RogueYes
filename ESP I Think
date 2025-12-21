@@ -5,147 +5,181 @@ local RunService = game:GetService("RunService")
 local Me = Players.LocalPlayer
 local myCharacter = Me.Character or Me.CharacterAdded:Wait()
 
--- Update myCharacter reference when the local player respawns
 Me.CharacterAdded:Connect(function(char)
-	myCharacter = char
+    myCharacter = char
 end)
 
 local LiveFolder = workspace:FindFirstChild("Live")
-if (not LiveFolder) then
-	warn("Live folder not found in workspace.")
-	return
-end
+local NPCFolder = workspace:FindFirstChild("NPCs")
 
 local _Flags = {
-	["CanPlrESP"] = true,
-	["CanTrinketESP"] = true,
+    ["CanPlrESP"] = true,
+    ["CanTrinketESP"] = true,
+}
+
+-- NPC Config
+local TrackedNPCs = {
+    ["Fallion"] = true,
+}
+
+-- Class Mapping based on Backpack items
+local ClassItems = {
+    ["Dominus"] = "Illusionist",
+    ["Demon Step"] = "Oni",
+    ["Floresco"] = "Druid",
+    ["Vocare"] = "Necromancer",
+    ["Elegant Slash"] = "Whisperer",
+    ["Shadow Fan"] = "Faceless",
+    ["Grapple"] = "Shinobi",
+    ["Wing Soar"] = "Dragon Slayer",
+    ["Tidal Trident"] = "Spearfisher",
+    ["Chain Pull"] = "Deepknight",
+    ["Hyper Body"] = "SKC",
+    ["Darkflame Burst"] = "Wraith Knight",
+    ["Calm Mind"] = "Samurai",
+    ["Wrathful Leap"] = "Abysswalker",
+    ["Puncture"] = "Vanguard"
 }
 
 local Functions = {
-	PlrESP = function(Character: Model)
-		if (not _Flags["CanPlrESP"]) or (Character == myCharacter) then return end
+    -- Helper to determine class based on items
+    GetPlayerClass = function(Character)
+        local player = Players:GetPlayerFromCharacter(Character)
+        if not player then return "Unknown" end
+        
+        local backpack = player:FindFirstChild("Backpack")
+        
+        -- Check both Backpack and Character (for equipped items)
+        local searchAreas = {Character, backpack}
+        
+        for _, area in pairs(searchAreas) do
+            if area then
+                for itemName, className in pairs(ClassItems) do
+                    if area:FindFirstChild(itemName) then
+                        return className
+                    end
+                end
+            end
+        end
+        return "None"
+    end,
 
-		-- Cleanup existing ESP on this character
-		if (Character:FindFirstChild("ESPHighlight")) then Character.ESPHighlight:Destroy() end
-		local head = Character:FindFirstChild("Head")
-		if head and head:FindFirstChild("DistanceGui") then head.DistanceGui:Destroy() end
+    ApplyESP = function(Character: Model, isNPC: boolean)
+        if (not _Flags["CanPlrESP"]) then return end
+        if not isNPC and Character == myCharacter then return end
 
-		-- 1. Create Highlight
-		local Highlight = Instance.new("Highlight")
-		Highlight.Parent = Character
-		Highlight.Adornee = Character
-		Highlight.Name = "ESPHighlight"
-		Highlight.FillTransparency = 1
-		Highlight.OutlineColor = Color3.new(1, 0, 0)
-		Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        if (Character:FindFirstChild("ESPHighlight")) then Character.ESPHighlight:Destroy() end
+        local head = Character:FindFirstChild("Head")
+        if head and head:FindFirstChild("DistanceGui") then head.DistanceGui:Destroy() end
 
-		-- 2. Create Distance Display
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "DistanceGui"
-		billboard.Adornee = Character:FindFirstChild("Head")
-		billboard.Parent = Character:FindFirstChild("Head")
-		billboard.AlwaysOnTop = true
-		billboard.MaxDistance = math.huge
-		billboard.Size = UDim2.new(0, 100, 0, 30)
-		billboard.StudsOffset = Vector3.new(0, 2, 0) -- Slightly higher
+        local Highlight = Instance.new("Highlight")
+        Highlight.Parent = Character
+        Highlight.Name = "ESPHighlight"
+        Highlight.FillTransparency = 1
+        Highlight.OutlineColor = isNPC and Color3.new(0, 0.5, 1) or Color3.new(1, 0, 0)
+        Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 
-		local textlabel = Instance.new("TextLabel")
-		textlabel.Parent = billboard
-		textlabel.BackgroundTransparency = 1
-		textlabel.Size = UDim2.new(1, 0, 1, 0)
-		textlabel.TextColor3 = Color3.new(1, 1, 1)
-		textlabel.TextScaled = true
-		textlabel.Text = "Calculating..."
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "DistanceGui"
+        billboard.Adornee = head
+        billboard.Parent = head
+        billboard.AlwaysOnTop = true
+        billboard.MaxDistance = math.huge
+        billboard.Size = UDim2.new(0, 200, 0, 60)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
 
-		local uistroke = Instance.new("UIStroke")
-		uistroke.Parent = textlabel
-		uistroke.Thickness = 1
+        local textlabel = Instance.new("TextLabel")
+        textlabel.Parent = billboard
+        textlabel.BackgroundTransparency = 1
+        textlabel.Size = UDim2.new(1, 0, 1, 0)
+        textlabel.TextColor3 = Color3.new(1, 1, 1)
+        textlabel.TextScaled = true
 
-		-- 3. Distance Update Logic
-		local connection
-		connection = RunService.Heartbeat:Connect(function()
-			if not Character or not Character.Parent or not _Flags["CanPlrESP"] then
-				billboard:Destroy()
-				Highlight:Destroy()
-				connection:Disconnect()
-				return
-			end
+        local uistroke = Instance.new("UIStroke")
+        uistroke.Parent = textlabel
+        uistroke.Thickness = 1
 
-			if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") and Character:FindFirstChild("HumanoidRootPart") then
-				local dist = (myCharacter.HumanoidRootPart.Position - Character.HumanoidRootPart.Position).Magnitude
-				textlabel.Text = string.format("%d studs", math.floor(dist + 0.5))
-			else
-				textlabel.Text = "Distance: N/A"
-			end
-		end)
-	end,
+        local connection
+        connection = RunService.Heartbeat:Connect(function()
+            if not Character or not Character.Parent or not _Flags["CanPlrESP"] then
+                if billboard then billboard:Destroy() end
+                if Highlight then Highlight:Destroy() end
+                connection:Disconnect()
+                return
+            end
 
-	ItemESP = function()
-		if (not _Flags["CanTrinketESP"]) then return end
+            if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") and Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (myCharacter.HumanoidRootPart.Position - Character.HumanoidRootPart.Position).Magnitude
+                
+                local nameDisplay = ""
+                if isNPC then
+                    nameDisplay = Character.Name
+                else
+                    local pObj = Players:GetPlayerFromCharacter(Character)
+                    local username = pObj and pObj.DisplayName or Character.Name
+                    local class = Functions.GetPlayerClass(Character)
+                    nameDisplay = string.format("%s: %s", username:upper(), class)
+                end
+                
+                textlabel.Text = string.format("%s\n%d studs", nameDisplay, math.floor(dist + 0.5))
+            end
+        end)
+    end,
 
-		local function tagTrinket(trinket)
-			if (trinket:IsA("BasePart") or trinket:IsA("MeshPart")) then
-				if trinket:FindFirstChild("ID") and not trinket:FindFirstChild("ItemHighlight") then
-					local highlight = Instance.new("Highlight")
-					highlight.Name = "ItemHighlight"
-					highlight.Parent = trinket
-					highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-					highlight.FillTransparency = 1
-					highlight.OutlineColor = Color3.new(0, 1, 0)
-				end
-			end
-		end
-
-		for _, item in pairs(workspace:GetChildren()) do tagTrinket(item) end
-	end,
+    ItemESP = function()
+        if (not _Flags["CanTrinketESP"]) then return end
+        for _, trinket in pairs(workspace:GetChildren()) do
+            if (trinket:IsA("BasePart") or trinket:IsA("MeshPart")) and trinket:FindFirstChild("ID") then
+                if not trinket:FindFirstChild("ItemHighlight") then
+                    local h = Instance.new("Highlight", trinket)
+                    h.Name = "ItemHighlight"
+                    h.FillTransparency = 1
+                    h.OutlineColor = Color3.new(0, 1, 0)
+                    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                end
+            end
+        end
+    end,
 }
 
 --- Logic Execution ---
 
--- Handle existing players in the Live folder
-for _, Model in pairs(LiveFolder:GetChildren()) do
-	if Model:IsA("Model") and Players:GetPlayerFromCharacter(Model) then
-		task.spawn(Functions.PlrESP, Model)
-	end
+if LiveFolder then
+    for _, m in pairs(LiveFolder:GetChildren()) do
+        if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end
+    end
+    LiveFolder.ChildAdded:Connect(function(c)
+        task.wait(0.2)
+        if c:IsA("Model") then Functions.ApplyESP(c, false) end
+    end)
 end
 
--- Handle new players/characters spawning
-workspace.ChildAdded:Connect(function(child)
-	-- If your game moves characters into a "Live" folder, we watch that
-	if child.Name == "Live" then -- Rare, but just in case folder is recreated
-		LiveFolder = child
-	end
-end)
-
-LiveFolder.ChildAdded:Connect(function(child)
-	task.wait(0.1) -- Wait for parts to load
-	if child:IsA("Model") then
-		Functions.PlrESP(child)
-	end
-end)
+if NPCFolder then
+    for _, m in pairs(NPCFolder:GetChildren()) do 
+        if TrackedNPCs[m.Name] then task.spawn(Functions.ApplyESP, m, true) end
+    end
+end
 
 task.spawn(Functions.ItemESP)
 
--- Toggle Logic (Z Key)
 UIS.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
-	if input.KeyCode == Enum.KeyCode.Z then
-		_Flags["CanPlrESP"] = not _Flags["CanPlrESP"]
-		_Flags["CanTrinketESP"] = _Flags["CanPlrESP"]
-
-		if not _Flags["CanPlrESP"] then
-			-- Cleanup
-			for _, v in pairs(workspace:GetDescendants()) do
-				if v.Name == "ESPHighlight" or v.Name == "DistanceGui" or v.Name == "ItemHighlight" then
-					v:Destroy()
-				end
-			end
-		else
-			-- Re-enable
-			for _, m in pairs(LiveFolder:GetChildren()) do
-				if m:IsA("Model") then task.spawn(Functions.PlrESP, m) end
-			end
-			task.spawn(Functions.ItemESP)
-		end
-	end
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Z then
+        _Flags["CanPlrESP"] = not _Flags["CanPlrESP"]
+        _Flags["CanTrinketESP"] = _Flags["CanPlrESP"]
+        if not _Flags["CanPlrESP"] then
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v.Name == "ESPHighlight" or v.Name == "DistanceGui" or v.Name == "ItemHighlight" then
+                    v:Destroy()
+                end
+            end
+        else
+            if LiveFolder then
+                for _, m in pairs(LiveFolder:GetChildren()) do
+                    if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end
+                end
+            end
+            task.spawn(Functions.ItemESP)
+        end
+    end
 end)
