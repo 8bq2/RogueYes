@@ -1,13 +1,18 @@
-
 local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local Me = Players.LocalPlayer
 local myCharacter = Me.Character or Me.CharacterAdded:Wait()
 
+-- Update myCharacter reference when the local player respawns
+Me.CharacterAdded:Connect(function(char)
+	myCharacter = char
+end)
+
 local LiveFolder = workspace:FindFirstChild("Live")
 if (not LiveFolder) then
-	print("nigger script found no nigger live folder NMIGGER")
+	warn("Live folder not found in workspace.")
 	return
 end
 
@@ -17,172 +22,129 @@ local _Flags = {
 }
 
 local Functions = {
-	PlrESP = function(Character: Model, ...) : ()
-		if (not _Flags["CanPlrESP"]) then return end
-		if (Character:FindFirstChild("Niggerlight")) then
-			Character.Niggerlight:Destroy();
-		end
+	PlrESP = function(Character: Model)
+		if (not _Flags["CanPlrESP"]) or (Character == myCharacter) then return end
 
-		if (Character ~= myCharacter) then
+		-- Cleanup existing ESP on this character
+		if (Character:FindFirstChild("ESPHighlight")) then Character.ESPHighlight:Destroy() end
+		local head = Character:FindFirstChild("Head")
+		if head and head:FindFirstChild("DistanceGui") then head.DistanceGui:Destroy() end
 
-			local Highlight = Instance.new("Highlight");
-			Highlight.Parent = Character
-			Highlight.Adornee = Character
-			Highlight.Name = "Niggerlight"
+		-- 1. Create Highlight
+		local Highlight = Instance.new("Highlight")
+		Highlight.Parent = Character
+		Highlight.Adornee = Character
+		Highlight.Name = "ESPHighlight"
+		Highlight.FillTransparency = 1
+		Highlight.OutlineColor = Color3.new(1, 0, 0)
+		Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 
-			Highlight.FillTransparency = 1
+		-- 2. Create Distance Display
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "DistanceGui"
+		billboard.Adornee = Character:FindFirstChild("Head")
+		billboard.Parent = Character:FindFirstChild("Head")
+		billboard.AlwaysOnTop = true
+		billboard.MaxDistance = math.huge
+		billboard.Size = UDim2.new(0, 100, 0, 30)
+		billboard.StudsOffset = Vector3.new(0, 2, 0) -- Slightly higher
 
-			Highlight.OutlineColor = Color3.new(1, 0, 0)
-			Highlight.OutlineTransparency = 0
+		local textlabel = Instance.new("TextLabel")
+		textlabel.Parent = billboard
+		textlabel.BackgroundTransparency = 1
+		textlabel.Size = UDim2.new(1, 0, 1, 0)
+		textlabel.TextColor3 = Color3.new(1, 1, 1)
+		textlabel.TextScaled = true
+		textlabel.Text = "Calculating..."
 
-			Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		local uistroke = Instance.new("UIStroke")
+		uistroke.Parent = textlabel
+		uistroke.Thickness = 1
 
-			local niggerbillboard = Instance.new("BillboardGui")
-			niggerbillboard.Adornee = Character:FindFirstChild("Head")
-			niggerbillboard.Parent = Character:FindFirstChild("Head")
-			niggerbillboard.AlwaysOnTop = true
-			niggerbillboard.MaxDistance = math.huge
-			niggerbillboard.Size = UDim2.new(0, 100, 0, 30)
-			niggerbillboard.StudsOffset = Vector3.new(0, 1.5 ,0)
+		-- 3. Distance Update Logic
+		local connection
+		connection = RunService.Heartbeat:Connect(function()
+			if not Character or not Character.Parent or not _Flags["CanPlrESP"] then
+				billboard:Destroy()
+				Highlight:Destroy()
+				connection:Disconnect()
+				return
+			end
 
-			local textlabel = Instance.new("TextLabel")
-			textlabel.Parent = niggerbillboard
-			textlabel.BackgroundTransparency = 1
-			textlabel.Size = UDim2.new(1, 0,1, 0)
-			textlabel.Text = "Distance: "
-			textlabel.TextColor = BrickColor.new("White") or Color3.fromRGB(255, 255 ,255) or Color3.new(1, 1, 1)
-			textlabel.TextScaled = true
-
-			local uistroke = Instance.new("UIStroke")
-			uistroke.Parent = textlabel
-			uistroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-			uistroke.Color = Color3.new(0, 0, 0)
-			uistroke.Thickness = 1
-			uistroke.Transparency = 0
-			uistroke.LineJoinMode = Enum.LineJoinMode.Round
-			uistroke.StrokeSizingMode = Enum.StrokeSizingMode.FixedSize
-
-			local connection
-			task.spawn(function()
-				connection = game:GetService("RunService").Heartbeat:Connect(function()
-					if not Character or not Character.Parent then
-						connection:Disconnect()
-						return
-					end
-
-					local localChar = myCharacter
-					if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
-						textlabel.Text = "Waiting..."
-						return
-					end
-
-					local localPosition = localChar:GetPivot().Position
-					local targetPosition = Character:GetPivot().Position
-
-					local distance = (localPosition - targetPosition).Magnitude
-					textlabel.Text = string.format("Dist: %d studs", math.floor(distance + 0.5))
-				end)
-
-				Character.AncestryChanged:Connect(function(_, parent)
-					if not parent then
-						if connection then
-							connection:Disconnect()
-						end
-					end
-				end)
-			end)
-		end
+			if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") and Character:FindFirstChild("HumanoidRootPart") then
+				local dist = (myCharacter.HumanoidRootPart.Position - Character.HumanoidRootPart.Position).Magnitude
+				textlabel.Text = string.format("%d studs", math.floor(dist + 0.5))
+			else
+				textlabel.Text = "Distance: N/A"
+			end
+		end)
 	end,
 
 	ItemESP = function()
 		if (not _Flags["CanTrinketESP"]) then return end
 
-		for _, trinket in pairs(workspace:GetChildren()) do
-			if (trinket:IsA("BasePart")) or (trinket:IsA("MeshPart")) then
-				if (trinket:FindFirstChildOfClass("StringValue")) and (trinket:FindFirstChildOfClass("StringValue").Name == "ID") then
-					local niggerlight = Instance.new("Highlight")
-					niggerlight.Name = "niggerlight"
-					niggerlight.Parent = trinket
-					niggerlight.Adornee = trinket
-					niggerlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-					niggerlight.FillTransparency = 1
-					niggerlight.OutlineColor = Color3.new(0, 1, 0)
-					niggerlight.OutlineTransparency = 0
+		local function tagTrinket(trinket)
+			if (trinket:IsA("BasePart") or trinket:IsA("MeshPart")) then
+				if trinket:FindFirstChild("ID") and not trinket:FindFirstChild("ItemHighlight") then
+					local highlight = Instance.new("Highlight")
+					highlight.Name = "ItemHighlight"
+					highlight.Parent = trinket
+					highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+					highlight.FillTransparency = 1
+					highlight.OutlineColor = Color3.new(0, 1, 0)
 				end
 			end
 		end
 
-		workspace.ChildAdded:Connect(function(Child)
-			if (Child:IsA("BasePart")) or (Child:IsA("MeshPart")) then
-				if (Child:FindFirstChildOfClass("StringValue")) and (Child:FindFirstChildOfClass("StringValue").Name == "ID") then
-					local niggerlight = Instance.new("Highlight")
-					niggerlight.Name = "niggerlight"
-					niggerlight.Parent = Child
-					niggerlight.Adornee = Child
-					niggerlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-					niggerlight.FillTransparency = 1
-					niggerlight.OutlineColor = Color3.new(0, 1, 0)
-					niggerlight.OutlineTransparency = 0
-				end
-			end
-		end)
+		for _, item in pairs(workspace:GetChildren()) do tagTrinket(item) end
 	end,
-};
+}
 
-for _, Model: Model in pairs(LiveFolder:GetChildren()) do
-	if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
+--- Logic Execution ---
+
+-- Handle existing players in the Live folder
+for _, Model in pairs(LiveFolder:GetChildren()) do
+	if Model:IsA("Model") and Players:GetPlayerFromCharacter(Model) then
 		task.spawn(Functions.PlrESP, Model)
 	end
 end
 
-Players.PlayerAdded:Connect(function(Plr)
-	Plr.CharacterAdded:Connect(function(Character)
-		if (Character) and (Character:IsA("Model")) then
-			task.spawn(Functions.PlrESP, Character)
-		end
-	end);
-end);
+-- Handle new players/characters spawning
+workspace.ChildAdded:Connect(function(child)
+	-- If your game moves characters into a "Live" folder, we watch that
+	if child.Name == "Live" then -- Rare, but just in case folder is recreated
+		LiveFolder = child
+	end
+end)
+
+LiveFolder.ChildAdded:Connect(function(child)
+	task.wait(0.1) -- Wait for parts to load
+	if child:IsA("Model") then
+		Functions.PlrESP(child)
+	end
+end)
 
 task.spawn(Functions.ItemESP)
 
+-- Toggle Logic (Z Key)
 UIS.InputBegan:Connect(function(input, gpe)
-	if (gpe) then return end
+	if gpe then return end
+	if input.KeyCode == Enum.KeyCode.Z then
+		_Flags["CanPlrESP"] = not _Flags["CanPlrESP"]
+		_Flags["CanTrinketESP"] = _Flags["CanPlrESP"]
 
-	if (input.KeyCode == Enum.KeyCode.Z) then
-		if (_Flags["CanPlrESP"]) or (_Flags["CanTrinketESP"]) then
-			_Flags["CanPlrESP"] = false
-			_Flags["CanTrinketESP"] = false
-
-			for _, Model: Model in pairs(LiveFolder:GetChildren()) do
-				if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
-					local hg = Model:FindFirstChildOfClass("Highlight")
-					if hg then
-						hg:Destroy()
-					end
+		if not _Flags["CanPlrESP"] then
+			-- Cleanup
+			for _, v in pairs(workspace:GetDescendants()) do
+				if v.Name == "ESPHighlight" or v.Name == "DistanceGui" or v.Name == "ItemHighlight" then
+					v:Destroy()
 				end
 			end
-
-			for _, trinket in pairs(workspace:GetChildren()) do
-				if (trinket:IsA("BasePart")) or (trinket:IsA("MeshPart")) then
-					if (trinket:FindFirstChildOfClass("StringValue")) and (trinket:FindFirstChildOfClass("StringValue").Name == "ID") then
-						local hg = trinket:FindFirstChildOfClass("Highlight")
-						if hg then
-							hg:Destroy()
-						end
-					end
-				end
-			end
-
 		else
-			_Flags["CanPlrESP"] = true
-			_Flags["CanTrinketESP"] = true
-
-			for _, Model: Model in pairs(LiveFolder:GetChildren()) do
-				if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
-					task.spawn(Functions.PlrESP, Model)
-				end
+			-- Re-enable
+			for _, m in pairs(LiveFolder:GetChildren()) do
+				if m:IsA("Model") then task.spawn(Functions.PlrESP, m) end
 			end
-
 			task.spawn(Functions.ItemESP)
 		end
 	end
