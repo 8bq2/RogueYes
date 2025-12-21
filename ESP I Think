@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 
 local Me = Players.LocalPlayer
 local myCharacter = Me.Character or Me.CharacterAdded:Wait()
+local camera = workspace.CurrentCamera
 
 Me.CharacterAdded:Connect(function(char) myCharacter = char end)
 
@@ -13,6 +14,7 @@ local NPCFolder = workspace:FindFirstChild("NPCs")
 local _Flags = { ["CanPlrESP"] = true, ["CanTrinketESP"] = true }
 local TrackedNPCs = { ["Fallion"] = true }
 
+-- Mappings
 local ClassItems = {
     ["Dominus"] = "Illusionist", ["Demon Step"] = "Oni", ["Verdien"] = "Druid",
     ["Vocare"] = "Necromancer", ["Elegant Slash"] = "Whisperer", ["ShadowDash"] = "Faceless",
@@ -23,61 +25,163 @@ local ClassItems = {
 }
 
 local EdictItems = {
-    ["Mederi"] = "HEALER",
-    ["Analysis"] = "SEER",
-    ["Verto"] = "BLADEMASTER"
+    ["Mederi"] = "HEALER", ["Analysis"] = "SEER", ["Verto"] = "BLADEMASTER"
 }
 
 local Functions = {}
 
+----------------------------------------------------------------/
+-- DRAGGABLE LOGIC
+----------------------------------------------------------------/
+local function MakeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+----------------------------------------------------------------/
+-- SPECTATE GUI CREATION
+----------------------------------------------------------------/
+local ScreenGui = Instance.new("ScreenGui", Me.PlayerGui)
+ScreenGui.Name = "ObserveGui"
+ScreenGui.Enabled = false
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 250, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(120, 140, 145)
+MainFrame.BackgroundTransparency = 0.2
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MakeDraggable(MainFrame)
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Text = "Observe"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 22
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.BackgroundTransparency = 1
+
+local Subtitle = Instance.new("TextLabel", MainFrame)
+Subtitle.Text = "Select the name of a player"
+Subtitle.Position = UDim2.new(0, 0, 0, 25)
+Subtitle.Size = UDim2.new(1, 0, 0, 20)
+Subtitle.Font = Enum.Font.SourceSansItalic
+Subtitle.TextSize = 16
+Subtitle.TextColor3 = Color3.new(0.9, 0.9, 0.9)
+Subtitle.BackgroundTransparency = 1
+
+local Scroll = Instance.new("ScrollingFrame", MainFrame)
+Scroll.Size = UDim2.new(0.9, 0, 0.78, 0)
+Scroll.Position = UDim2.new(0.05, 0, 0.18, 0)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 4
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local ListLayout = Instance.new("UIListLayout", Scroll)
+ListLayout.Padding = UDim.new(0, 2)
+
+-- Spectate Functions
+local function spectate(target)
+    if target and target.Character and target.Character:FindFirstChild("Humanoid") then
+        camera.CameraSubject = target.Character.Humanoid
+        ScreenGui.Enabled = false
+    end
+end
+
+local function updateSpectateList()
+    for _, child in pairs(Scroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+
+    for _, p in pairs(Players:GetPlayers()) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -10, 0, 25)
+        btn.BackgroundTransparency = 1
+        btn.Text = p.DisplayName or p.Name
+        btn.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.Font = Enum.Font.SourceSans
+        btn.TextSize = 18
+        btn.Parent = Scroll
+
+        btn.MouseEnter:Connect(function() btn.TextColor3 = Color3.new(1, 1, 1) end)
+        btn.MouseLeave:Connect(function() btn.TextColor3 = Color3.new(0.8, 0.8, 0.8) end)
+        
+        btn.MouseButton1Click:Connect(function()
+            spectate(p)
+        end)
+    end
+end
+
+----------------------------------------------------------------/
+-- DATA & ESP LOGIC
+----------------------------------------------------------------/
 Functions.IsActualPlayer = function(Character)
     return Character and Players:FindFirstChild(Character.Name) ~= nil
 end
 
 Functions.GetHeldItem = function(Character)
     local tool = Character:FindFirstChildOfClass("Tool")
-    if tool then return tool.Name:upper() end
-    return "NONE"
+    return tool and tool.Name:upper() or "NONE"
 end
 
 Functions.GetPlayerData = function(Character)
     local p = Players:GetPlayerFromCharacter(Character)
-    if not p then return "UNDEFINED", "NONE", "FRESHIE" end
-    
+    if not p then return "UNDEFINED", "UNDEFINED", "NO EDICT" end
     local b = p:FindFirstChild("Backpack")
     local res = {Character, b}
-    
-    local class = "FRESHIE"
-    local race = "UNDEFINED"
-    local edict = "NONE"
+    local class, race, edict = "FRESHIE", "UNDEFINED", "NO EDICT"
 
     local function has(name)
-        for _, area in pairs(res) do
-            if area and area:FindFirstChild(name) then return true end
+        for _, area in pairs(res) do if area and area:FindFirstChild(name) then return true end end
+        return false
+    end
+
+    local function hasRiganColor()
+        local targetColor = Color3.fromRGB(101, 101, 115)
+        for _, part in pairs(Character:GetChildren()) do
+            if part:IsA("BasePart") and part.Color == targetColor then return true end
         end
         return false
     end
 
-    local function hasInChar(name)
-        return Character:FindFirstChild(name) ~= nil
-    end
+    for item, name in pairs(ClassItems) do if has(item) then class = name:upper() break end end
+    for item, name in pairs(EdictItems) do if has(item) then edict = name break end end
 
-    -- 1. Identify Class
-    for item, name in pairs(ClassItems) do
-        if has(item) then class = name:upper() break end
-    end
-
-    -- 2. Identify Edict
-    for item, name in pairs(EdictItems) do
-        if has(item) then edict = name break end
-    end
-
-    -- 3. Identify Race
-    if hasInChar("AzaelHorn") then race = "AZAEL" -- Azael Check
+    if Character:FindFirstChild("AzaelHorn") then race = "AZAEL"
     elseif has("Decompose") then race = "SCROOM"
     elseif has("World's Pulse") and class ~= "DRUID" then race = "DZIN"
-    elseif has("Repair") then
-        race = has("Exhaust") and "METASCROOM" or "GAIAN"
+    elseif has("Repair") then race = has("Exhaust") and "METASCROOM" or "GAIAN"
     elseif has("Shift") then race = "MADRASIAN"
     elseif has("Tempest Soul") then race = "VIND"
     elseif has("Dissolve") then race = "FISCHERAN"
@@ -86,24 +190,24 @@ Functions.GetPlayerData = function(Character)
     elseif has("Emulate") then race = "NAVARAN"
     elseif has("Respirare") then race = "KASPARAN"
     elseif has("Shoulder Throw") and has("MercenaryCarry") then race = "ASHIIN"
-    elseif has("Flood") then race = "RIGAN"
+    elseif has("Flood") and hasRiganColor() then race = "RIGAN"
     elseif has("Bloodline") then race = "HASELDAN"
     elseif has("Galvanize") then race = "CONSTRUCT"
     end
-
     return race, edict, class
 end
 
 Functions.ApplyESP = function(Character: Model, isNPC: boolean)
     if not _Flags["CanPlrESP"] or (not isNPC and (Character == myCharacter or not Functions.IsActualPlayer(Character))) then return end
-
-    if (Character:FindFirstChild("ESPHighlight")) then Character.ESPHighlight:Destroy() end
-    local head = Character:FindFirstChild("Head")
-    if head and head:FindFirstChild("DistanceGui") then head.DistanceGui:Destroy() end
+    
+    local head = Character:WaitForChild("Head", 5)
+    if not head then return end
+    
+    if Character:FindFirstChild("ESPHighlight") then Character.ESPHighlight:Destroy() end
+    if head:FindFirstChild("DistanceGui") then head.DistanceGui:Destroy() end
 
     local Highlight = Instance.new("Highlight", Character)
-    Highlight.Name = "ESPHighlight"
-    Highlight.FillTransparency, Highlight.DepthMode = 1, Enum.HighlightDepthMode.AlwaysOnTop
+    Highlight.Name, Highlight.FillTransparency, Highlight.DepthMode = "ESPHighlight", 1, Enum.HighlightDepthMode.AlwaysOnTop
     Highlight.OutlineColor = isNPC and Color3.new(0, 0.5, 1) or Color3.new(1, 0, 0)
 
     local billboard = Instance.new("BillboardGui", head)
@@ -111,10 +215,7 @@ Functions.ApplyESP = function(Character: Model, isNPC: boolean)
     billboard.StudsOffset = Vector3.new(0, 4, 0)
 
     local textlabel = Instance.new("TextLabel", billboard)
-    textlabel.BackgroundTransparency, textlabel.Size, textlabel.TextColor3 = 1, UDim2.new(1, 0, 1, 0), Color3.new(1, 1, 1)
-    textlabel.TextScaled = false
-    textlabel.TextSize = 12 
-    textlabel.Font = Enum.Font.SourceSansBold
+    textlabel.BackgroundTransparency, textlabel.Size, textlabel.TextColor3, textlabel.TextSize, textlabel.Font = 1, UDim2.new(1, 0, 1, 0), Color3.new(1, 1, 1), 12, Enum.Font.SourceSansBold
     Instance.new("UIStroke", textlabel).Thickness = 1
 
     local connection
@@ -122,63 +223,63 @@ Functions.ApplyESP = function(Character: Model, isNPC: boolean)
         if not Character or not Character.Parent or not _Flags["CanPlrESP"] then
             billboard:Destroy(); Highlight:Destroy(); connection:Disconnect() return
         end
-
         if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") and Character:FindFirstChild("HumanoidRootPart") then
             local dist = (myCharacter.HumanoidRootPart.Position - Character.HumanoidRootPart.Position).Magnitude
             if isNPC then
-                textlabel.Text = string.format("%s\n%d studs", Character.Name:upper(), math.floor(dist + 0.5))
+                textlabel.Text = string.format("%s\n%d STUDS", Character.Name:upper(), math.floor(dist + 0.5))
             else
                 local race, edict, class = Functions.GetPlayerData(Character)
-                local heldItem = Functions.GetHeldItem(Character)
                 local pObj = Players:FindFirstChild(Character.Name)
-                local username = pObj and pObj.DisplayName:upper() or Character.Name:upper()
-                
-                textlabel.Text = string.format("%s\n%s | %s | %s\nHOLDING: %s\n%d STUDS", 
-                    username, race, edict, class, heldItem, math.floor(dist + 0.5))
+                local username = pObj and pObj.DisplayName:upper() or "UNKNOWN"
+                textlabel.Text = string.format("%s\n%s | %s | %s\nHOLDING: %s\n%d STUDS", username, race, edict, class, Functions.GetHeldItem(Character), math.floor(dist + 0.5))
             end
         end
     end)
 end
 
+----------------------------------------------------------------/
+-- TRINKETS & INIT
+----------------------------------------------------------------/
 Functions.TagTrinket = function(t)
-    if not _Flags["CanTrinketESP"] then return end
-    if (t:IsA("BasePart") or t:IsA("MeshPart")) and t:FindFirstChild("ID") then
-        if not t:FindFirstChild("ItemHighlight") then
-            local h = Instance.new("Highlight", t)
-            h.Name, h.FillTransparency, h.OutlineColor = "ItemHighlight", 1, Color3.new(0, 1, 0)
-            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        end
+    if _Flags["CanTrinketESP"] and (t:IsA("BasePart") or t:IsA("MeshPart")) and t:FindFirstChild("ID") and not t:FindFirstChild("ItemHighlight") then
+        local h = Instance.new("Highlight", t)
+        h.Name, h.FillTransparency, h.OutlineColor = "ItemHighlight", 1, Color3.new(0, 1, 0)
     end
 end
-
-Functions.ItemESP = function()
-    for _, t in pairs(workspace:GetChildren()) do Functions.TagTrinket(t) end
-end
-
-workspace.ChildAdded:Connect(function(child) task.wait(0.1) Functions.TagTrinket(child) end)
 
 if LiveFolder then
     for _, m in pairs(LiveFolder:GetChildren()) do if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end end
     LiveFolder.ChildAdded:Connect(function(c) task.wait(0.6) if c:IsA("Model") then Functions.ApplyESP(c, false) end end)
 end
-
 if NPCFolder then
     for _, m in pairs(NPCFolder:GetChildren()) do if TrackedNPCs[m.Name] then task.spawn(Functions.ApplyESP, m, true) end end
 end
 
-task.spawn(Functions.ItemESP)
+workspace.ChildAdded:Connect(function(c) task.wait(0.1) Functions.TagTrinket(c) end)
+task.spawn(function() for _, t in pairs(workspace:GetChildren()) do Functions.TagTrinket(t) end end)
 
+----------------------------------------------------------------/
+-- INPUT CONTROLS
+----------------------------------------------------------------/
 UIS.InputBegan:Connect(function(input, gpe)
-    if gpe or input.KeyCode ~= Enum.KeyCode.Z then return end
-    _Flags["CanPlrESP"] = not _Flags["CanPlrESP"]
-    _Flags["CanTrinketESP"] = _Flags["CanPlrESP"]
-    if not _Flags["CanPlrESP"] then
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v.Name == "ESPHighlight" or v.Name == "DistanceGui" or v.Name == "ItemHighlight" then v:Destroy() end
+    if gpe then return end
+    
+    if input.KeyCode == Enum.KeyCode.Z then
+        _Flags["CanPlrESP"] = not _Flags["CanPlrESP"]
+        _Flags["CanTrinketESP"] = _Flags["CanPlrESP"]
+        if not _Flags["CanPlrESP"] then
+            for _, v in pairs(workspace:GetDescendants()) do if v.Name == "ESPHighlight" or v.Name == "DistanceGui" or v.Name == "ItemHighlight" then v:Destroy() end end
+        else
+            for _, m in pairs(LiveFolder:GetChildren()) do if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end end
         end
-    else
-        for _, m in pairs(LiveFolder:GetChildren()) do if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end end
-        for _, m in pairs(NPCFolder:GetChildren()) do if TrackedNPCs[m.Name] then task.spawn(Functions.ApplyESP, m, true) end end
-        task.spawn(Functions.ItemESP)
+    elseif input.KeyCode == Enum.KeyCode.M then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+        if ScreenGui.Enabled then
+            updateSpectateList()
+        end
+    elseif input.KeyCode == Enum.KeyCode.X then
+        if myCharacter and myCharacter:FindFirstChild("Humanoid") then
+            camera.CameraSubject = myCharacter.Humanoid
+        end
     end
 end)
