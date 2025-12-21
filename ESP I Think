@@ -13,14 +13,13 @@ local NPCFolder = workspace:FindFirstChild("NPCs")
 local _Flags = { ["CanPlrESP"] = true, ["CanTrinketESP"] = true }
 local TrackedNPCs = { ["Fallion"] = true }
 
--- Updated Mapping
 local ClassItems = {
-    ["Dominus"] = "Illusionist", ["Demon Step"] = "Oni", ["Floresco"] = "Druid",
+    ["Dominus"] = "Illusionist", ["Demon Step"] = "Oni", ["Verdien"] = "Druid",
     ["Vocare"] = "Necromancer", ["Elegant Slash"] = "Whisperer", ["ShadowDash"] = "Faceless",
     ["Grapple"] = "Shinobi", ["Wing Soar"] = "Dragon Slayer", ["Tidal Trident"] = "Spearfisher",
     ["Chain Pull"] = "Deepknight", ["Hyper Body"] = "SKC", ["Darkflame Burst"] = "Wraith Knight",
     ["Calm Mind"] = "Samurai", ["Wrathful Leap"] = "Abysswalker", ["Puncture"] = "Vanguard",
-    ["Monastic Stance"] = "Dragon Sage"
+    ["Lightning Elbow"] = "Dragon Sage"
 }
 
 local EdictItems = {
@@ -35,6 +34,12 @@ Functions.IsActualPlayer = function(Character)
     return Character and Players:FindFirstChild(Character.Name) ~= nil
 end
 
+Functions.GetHeldItem = function(Character)
+    local tool = Character:FindFirstChildOfClass("Tool")
+    if tool then return tool.Name:upper() end
+    return "NONE"
+end
+
 Functions.GetPlayerData = function(Character)
     local p = Players:GetPlayerFromCharacter(Character)
     if not p then return "UNDEFINED", "NONE", "FRESHIE" end
@@ -46,7 +51,6 @@ Functions.GetPlayerData = function(Character)
     local race = "UNDEFINED"
     local edict = "NONE"
 
-    -- Improved Helper: Checks Character (Equipped) OR Backpack (Inventory)
     local function has(name)
         for _, area in pairs(res) do
             if area and area:FindFirstChild(name) then return true end
@@ -54,12 +58,13 @@ Functions.GetPlayerData = function(Character)
         return false
     end
 
+    local function hasInChar(name)
+        return Character:FindFirstChild(name) ~= nil
+    end
+
     -- 1. Identify Class
     for item, name in pairs(ClassItems) do
-        if has(item) then 
-            class = name:upper() 
-            break 
-        end
+        if has(item) then class = name:upper() break end
     end
 
     -- 2. Identify Edict
@@ -67,8 +72,9 @@ Functions.GetPlayerData = function(Character)
         if has(item) then edict = name break end
     end
 
-    -- 3. Identify Race with Priority and Conflict Logic
-    if has("Decompose") then race = "SCROOM"
+    -- 3. Identify Race
+    if hasInChar("AzaelHorn") then race = "AZAEL" -- Azael Check
+    elseif has("Decompose") then race = "SCROOM"
     elseif has("World's Pulse") and class ~= "DRUID" then race = "DZIN"
     elseif has("Repair") then
         race = has("Exhaust") and "METASCROOM" or "GAIAN"
@@ -101,13 +107,13 @@ Functions.ApplyESP = function(Character: Model, isNPC: boolean)
     Highlight.OutlineColor = isNPC and Color3.new(0, 0.5, 1) or Color3.new(1, 0, 0)
 
     local billboard = Instance.new("BillboardGui", head)
-    billboard.Name, billboard.AlwaysOnTop, billboard.Size = "DistanceGui", true, UDim2.new(0, 250, 0, 80)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.Name, billboard.AlwaysOnTop, billboard.Size = "DistanceGui", true, UDim2.new(0, 250, 0, 100)
+    billboard.StudsOffset = Vector3.new(0, 4, 0)
 
     local textlabel = Instance.new("TextLabel", billboard)
     textlabel.BackgroundTransparency, textlabel.Size, textlabel.TextColor3 = 1, UDim2.new(1, 0, 1, 0), Color3.new(1, 1, 1)
     textlabel.TextScaled = false
-    textlabel.TextSize = 13
+    textlabel.TextSize = 12 
     textlabel.Font = Enum.Font.SourceSansBold
     Instance.new("UIStroke", textlabel).Thickness = 1
 
@@ -123,9 +129,12 @@ Functions.ApplyESP = function(Character: Model, isNPC: boolean)
                 textlabel.Text = string.format("%s\n%d studs", Character.Name:upper(), math.floor(dist + 0.5))
             else
                 local race, edict, class = Functions.GetPlayerData(Character)
+                local heldItem = Functions.GetHeldItem(Character)
                 local pObj = Players:FindFirstChild(Character.Name)
                 local username = pObj and pObj.DisplayName:upper() or Character.Name:upper()
-                textlabel.Text = string.format("%s\n%s | %s | %s\n%d studs", username, race, edict, class, math.floor(dist + 0.5))
+                
+                textlabel.Text = string.format("%s\n%s | %s | %s\nHOLDING: %s\n%d STUDS", 
+                    username, race, edict, class, heldItem, math.floor(dist + 0.5))
             end
         end
     end)
