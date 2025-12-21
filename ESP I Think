@@ -13,9 +13,10 @@ local NPCFolder = workspace:FindFirstChild("NPCs")
 local _Flags = { ["CanPlrESP"] = true, ["CanTrinketESP"] = true }
 local TrackedNPCs = { ["Fallion"] = true }
 
+-- Updated Mapping
 local ClassItems = {
     ["Dominus"] = "Illusionist", ["Demon Step"] = "Oni", ["Floresco"] = "Druid",
-    ["Vocare"] = "Necromancer", ["Elegant Slash"] = "Whisperer", ["Shadow Fan"] = "Faceless",
+    ["Vocare"] = "Necromancer", ["Elegant Slash"] = "Whisperer", ["ShadowDash"] = "Faceless",
     ["Grapple"] = "Shinobi", ["Wing Soar"] = "Dragon Slayer", ["Tidal Trident"] = "Spearfisher",
     ["Chain Pull"] = "Deepknight", ["Hyper Body"] = "SKC", ["Darkflame Burst"] = "Wraith Knight",
     ["Calm Mind"] = "Samurai", ["Wrathful Leap"] = "Abysswalker", ["Puncture"] = "Vanguard",
@@ -45,6 +46,7 @@ Functions.GetPlayerData = function(Character)
     local race = "UNDEFINED"
     local edict = "NONE"
 
+    -- Improved Helper: Checks Character (Equipped) OR Backpack (Inventory)
     local function has(name)
         for _, area in pairs(res) do
             if area and area:FindFirstChild(name) then return true end
@@ -53,11 +55,10 @@ Functions.GetPlayerData = function(Character)
     end
 
     -- 1. Identify Class
-    for _, area in pairs(res) do
-        if area then
-            for item, name in pairs(ClassItems) do
-                if area:FindFirstChild(item) then class = name:upper() break end
-            end
+    for item, name in pairs(ClassItems) do
+        if has(item) then 
+            class = name:upper() 
+            break 
         end
     end
 
@@ -66,9 +67,9 @@ Functions.GetPlayerData = function(Character)
         if has(item) then edict = name break end
     end
 
-    -- 3. Identify Race with Priority Logic
+    -- 3. Identify Race with Priority and Conflict Logic
     if has("Decompose") then race = "SCROOM"
-    elseif has("World's Pulse") and class ~= "DRUID" then race = "DZIN" -- Dzin/Druid Check
+    elseif has("World's Pulse") and class ~= "DRUID" then race = "DZIN"
     elseif has("Repair") then
         race = has("Exhaust") and "METASCROOM" or "GAIAN"
     elseif has("Shift") then race = "MADRASIAN"
@@ -78,7 +79,7 @@ Functions.GetPlayerData = function(Character)
     elseif (has("Soul Rip") or has("MasteredRune")) and class ~= "WRAITH KNIGHT" then race = "DINAKERI"
     elseif has("Emulate") then race = "NAVARAN"
     elseif has("Respirare") then race = "KASPARAN"
-    elseif has("Shoulder Throw") and has("MercenaryCarry") then race = "ASHIIN" -- Ashiin AND Check
+    elseif has("Shoulder Throw") and has("MercenaryCarry") then race = "ASHIIN"
     elseif has("Flood") then race = "RIGAN"
     elseif has("Bloodline") then race = "HASELDAN"
     elseif has("Galvanize") then race = "CONSTRUCT"
@@ -106,7 +107,7 @@ Functions.ApplyESP = function(Character: Model, isNPC: boolean)
     local textlabel = Instance.new("TextLabel", billboard)
     textlabel.BackgroundTransparency, textlabel.Size, textlabel.TextColor3 = 1, UDim2.new(1, 0, 1, 0), Color3.new(1, 1, 1)
     textlabel.TextScaled = false
-    textlabel.TextSize = 13 -- Slightly smaller as requested
+    textlabel.TextSize = 13
     textlabel.Font = Enum.Font.SourceSansBold
     Instance.new("UIStroke", textlabel).Thickness = 1
 
