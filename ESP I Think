@@ -72,7 +72,7 @@ local Functions = {
 
 					local localChar = myCharacter
 					if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
-						textLabel.Text = "Waiting..."
+						textlabel.Text = "Waiting..."
 						return
 					end
 
@@ -80,7 +80,7 @@ local Functions = {
 					local targetPosition = Character:GetPivot().Position
 
 					local distance = (localPosition - targetPosition).Magnitude
-					textLabel.Text = string.format("Dist: %d studs", math.floor(distance + 0.5))
+					textlabel.Text = string.format("Dist: %d studs", math.floor(distance + 0.5))
 				end)
 
 				Character.AncestryChanged:Connect(function(_, parent)
@@ -136,11 +136,11 @@ for _, Model: Model in pairs(LiveFolder:GetChildren()) do
 end
 
 Players.PlayerAdded:Connect(function(Plr)
-	for _, Model: Model in pairs(LiveFolder:GetChildren()) do
-		if (Model) and (Model:IsA("Model")) and (Players:FindFirstChild(Model.Name)) then
-			task.spawn(Functions.PlrESP, Model)
+	Plr.CharacterAdded:Connect(function(Character)
+		if (Character) and (Character:IsA("Model")) then
+			task.spawn(Functions.PlrESP, Character)
 		end
-	end
+	end);
 end);
 
 task.spawn(Functions.ItemESP)
