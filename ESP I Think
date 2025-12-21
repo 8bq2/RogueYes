@@ -5,188 +5,170 @@ local RunService = game:GetService("RunService")
 local Me = Players.LocalPlayer
 local myCharacter = Me.Character or Me.CharacterAdded:Wait()
 
-Me.CharacterAdded:Connect(function(char)
-    myCharacter = char
-end)
+Me.CharacterAdded:Connect(function(char) myCharacter = char end)
 
 local LiveFolder = workspace:FindFirstChild("Live")
 local NPCFolder = workspace:FindFirstChild("NPCs")
 
-local _Flags = {
-    ["CanPlrESP"] = true,
-    ["CanTrinketESP"] = true,
-}
+local _Flags = { ["CanPlrESP"] = true, ["CanTrinketESP"] = true }
+local TrackedNPCs = { ["Fallion"] = true }
 
-local TrackedNPCs = {
-    ["Fallion"] = true,
-}
-
+-- Mappings
 local ClassItems = {
-    ["Dominus"] = "Illusionist",
-    ["Demon Step"] = "Oni",
-    ["Floresco"] = "Druid",
-    ["Vocare"] = "Necromancer",
-    ["Elegant Slash"] = "Whisperer",
-    ["Shadow Fan"] = "Faceless",
-    ["Grapple"] = "Shinobi",
-    ["Wing Soar"] = "Dragon Slayer",
-    ["Tidal Trident"] = "Spearfisher",
-    ["Chain Pull"] = "Deepknight",
-    ["Hyper Body"] = "SKC",
-    ["Darkflame Burst"] = "Wraith Knight",
-    ["Calm Mind"] = "Samurai",
-    ["Wrathful Leap"] = "Abysswalker",
-    ["Puncture"] = "Vanguard"
+    ["Dominus"] = "Illusionist", ["Demon Step"] = "Oni", ["Floresco"] = "Druid",
+    ["Vocare"] = "Necromancer", ["Elegant Slash"] = "Whisperer", ["Shadow Fan"] = "Faceless",
+    ["Grapple"] = "Shinobi", ["Wing Soar"] = "Dragon Slayer", ["Tidal Trident"] = "Spearfisher",
+    ["Chain Pull"] = "Deepknight", ["Hyper Body"] = "SKC", ["Darkflame Burst"] = "Wraith Knight",
+    ["Calm Mind"] = "Samurai", ["Wrathful Leap"] = "Abysswalker", ["Puncture"] = "Vanguard",
+    ["Monastic Stance"] = "Dragon Sage"
 }
 
 local Functions = {}
 
--- Strict Player Check Logic
 Functions.IsActualPlayer = function(Character)
-    if not Character or not Character:IsA("Model") then return false end
-    -- Checks if a player object exists with the same name as the Character model
-    local playerObject = Players:FindFirstChild(Character.Name)
-    return playerObject ~= nil
+    return Character and Players:FindFirstChild(Character.Name) ~= nil
 end
 
-Functions.GetPlayerClass = function(Character)
-    if not Character then return "FRESHIE" end
-    local player = Players:GetPlayerFromCharacter(Character)
-    if not player then return "FRESHIE" end
+Functions.GetPlayerData = function(Character)
+    local p = Players:GetPlayerFromCharacter(Character)
+    if not p then return "NON-SPEC", "FRESHIE" end
     
-    local backpack = player:FindFirstChild("Backpack")
+    local b = p:FindFirstChild("Backpack")
+    local res = {Character, b}
     
-    for itemName, className in pairs(ClassItems) do
-        if Character:FindFirstChild(itemName) or (backpack and backpack:FindFirstChild(itemName)) then
-            return className:upper()
+    local class = "FRESHIE"
+    local race = "NON-SPEC"
+
+    -- 1. Identify Class
+    for _, area in pairs(res) do
+        if area then
+            for item, name in pairs(ClassItems) do
+                if area:FindFirstChild(item) then class = name:upper() break end
+            end
         end
     end
-    
-    return "FRESHIE"
+
+    -- 2. Identify Race Helper
+    local function has(name)
+        for _, area in pairs(res) do
+            if area and area:FindFirstChild(name) then return true end
+        end
+        return false
+    end
+
+    if has("Decompose") then race = "SCROOM"
+    elseif has("World's Pulse") then race = "DZIN"
+    elseif has("Repair") then
+        race = has("Exhaust") and "METASCROOM" or "GAIAN"
+    elseif has("Shift") then race = "MADRASIAN"
+    elseif has("Tempest Soul") then race = "VIND"
+    elseif has("Dissolve") then race = "FISCHERAN"
+    elseif has("Flock") then race = "MORVID"
+    elseif (has("Soul Rip") or has("MasteredRune")) and class ~= "WRAITH KNIGHT" then race = "DINAKERI"
+    elseif has("Emulate") then race = "NAVARAN"
+    elseif has("Respirare") then race = "KASPARAN"
+    elseif has("Shoulder Throw") or has("MercenaryCarry") then race = "ASHIIN"
+    elseif has("Flood") then race = "RIGAN"
+    elseif has("Bloodline") then race = "HASELDAN"
+    elseif has("Galvanize") then race = "CONSTRUCT"
+    end
+
+    return race, class
 end
 
 Functions.ApplyESP = function(Character: Model, isNPC: boolean)
-    if (not _Flags["CanPlrESP"]) then return end
-    
-    -- Strict Validation: Must be the local player's char, a tracked NPC, or a valid Player model
-    if not isNPC then
-        if Character == myCharacter or not Functions.IsActualPlayer(Character) then 
-            return 
-        end
-    end
+    if not _Flags["CanPlrESP"] or (not isNPC and (Character == myCharacter or not Functions.IsActualPlayer(Character))) then return end
 
-    if (Character:FindFirstChild("ESPHighlight")) then Character.ESPHighlight:Destroy() end
+    if Character:FindFirstChild("ESPHighlight") then Character.ESPHighlight:Destroy() end
     local head = Character:FindFirstChild("Head")
     if head and head:FindFirstChild("DistanceGui") then head.DistanceGui:Destroy() end
 
-    local Highlight = Instance.new("Highlight")
-    Highlight.Parent = Character
+    local Highlight = Instance.new("Highlight", Character)
     Highlight.Name = "ESPHighlight"
-    Highlight.FillTransparency = 1
+    Highlight.FillTransparency, Highlight.DepthMode = 1, Enum.HighlightDepthMode.AlwaysOnTop
     Highlight.OutlineColor = isNPC and Color3.new(0, 0.5, 1) or Color3.new(1, 0, 0)
-    Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "DistanceGui"
-    billboard.Adornee = head
-    billboard.Parent = head
-    billboard.AlwaysOnTop = true
-    billboard.MaxDistance = math.huge
-    billboard.Size = UDim2.new(0, 200, 0, 60)
+    local billboard = Instance.new("BillboardGui", head)
+    billboard.Name, billboard.AlwaysOnTop, billboard.Size = "DistanceGui", true, UDim2.new(0, 250, 0, 70)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
 
-    local textlabel = Instance.new("TextLabel")
-    textlabel.Parent = billboard
-    textlabel.BackgroundTransparency = 1
-    textlabel.Size = UDim2.new(1, 0, 1, 0)
-    textlabel.TextColor3 = Color3.new(1, 1, 1)
-    textlabel.TextScaled = true
-
-    local uistroke = Instance.new("UIStroke")
-    uistroke.Parent = textlabel
-    uistroke.Thickness = 1
+    local textlabel = Instance.new("TextLabel", billboard)
+    textlabel.BackgroundTransparency, textlabel.Size, textlabel.TextColor3, textlabel.TextScaled = 1, UDim2.new(1, 0, 1, 0), Color3.new(1, 1, 1), true
+    Instance.new("UIStroke", textlabel).Thickness = 1
 
     local connection
     connection = RunService.Heartbeat:Connect(function()
         if not Character or not Character.Parent or not _Flags["CanPlrESP"] then
-            if billboard then billboard:Destroy() end
-            if Highlight then Highlight:Destroy() end
-            connection:Disconnect()
-            return
+            billboard:Destroy(); Highlight:Destroy(); connection:Disconnect() return
         end
 
         if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") and Character:FindFirstChild("HumanoidRootPart") then
             local dist = (myCharacter.HumanoidRootPart.Position - Character.HumanoidRootPart.Position).Magnitude
-            
-            local nameDisplay = ""
             if isNPC then
-                nameDisplay = Character.Name:upper()
+                textlabel.Text = string.format("%s\n%d studs", Character.Name:upper(), math.floor(dist + 0.5))
             else
+                local race, class = Functions.GetPlayerData(Character)
                 local pObj = Players:FindFirstChild(Character.Name)
-                local username = pObj and pObj.DisplayName or Character.Name
-                local class = Functions.GetPlayerClass(Character)
-                nameDisplay = string.format("%s: %s", username:upper(), class)
+                local username = pObj and pObj.DisplayName:upper() or Character.Name:upper()
+                textlabel.Text = string.format("%s\n%s | %s\n%d studs", username, race, class, math.floor(dist + 0.5))
             end
-            
-            textlabel.Text = string.format("%s\n%d studs", nameDisplay, math.floor(dist + 0.5))
         end
     end)
 end
 
-Functions.ItemESP = function()
-    if (not _Flags["CanTrinketESP"]) then return end
-    for _, trinket in pairs(workspace:GetChildren()) do
-        if (trinket:IsA("BasePart") or trinket:IsA("MeshPart")) and trinket:FindFirstChild("ID") then
-            if not trinket:FindFirstChild("ItemHighlight") then
-                local h = Instance.new("Highlight", trinket)
-                h.Name = "ItemHighlight"
-                h.FillTransparency = 1
-                h.OutlineColor = Color3.new(0, 1, 0)
-                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            end
+-- RESTORED FULL TRINKET LOGIC
+Functions.TagTrinket = function(t)
+    if not _Flags["CanTrinketESP"] then return end
+    if (t:IsA("BasePart") or t:IsA("MeshPart")) and t:FindFirstChild("ID") then
+        if not t:FindFirstChild("ItemHighlight") then
+            local h = Instance.new("Highlight", t)
+            h.Name, h.FillTransparency, h.OutlineColor = "ItemHighlight", 1, Color3.new(0, 1, 0)
+            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         end
     end
 end
+
+Functions.ItemESP = function()
+    -- Scan existing items
+    for _, t in pairs(workspace:GetChildren()) do
+        Functions.TagTrinket(t)
+    end
+end
+
+-- Listen for new items
+workspace.ChildAdded:Connect(function(child)
+    task.wait(0.1)
+    Functions.TagTrinket(child)
+end)
 
 --- Logic Execution ---
 
 if LiveFolder then
-    for _, m in pairs(LiveFolder:GetChildren()) do
-        if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end
-    end
-    LiveFolder.ChildAdded:Connect(function(c)
-        task.wait(0.5)
-        if c:IsA("Model") then Functions.ApplyESP(c, false) end
-    end)
+    for _, m in pairs(LiveFolder:GetChildren()) do if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end end
+    LiveFolder.ChildAdded:Connect(function(c) task.wait(0.6) if c:IsA("Model") then Functions.ApplyESP(c, false) end end)
 end
 
 if NPCFolder then
-    for _, m in pairs(NPCFolder:GetChildren()) do 
-        if TrackedNPCs[m.Name] then task.spawn(Functions.ApplyESP, m, true) end
-    end
+    for _, m in pairs(NPCFolder:GetChildren()) do if TrackedNPCs[m.Name] then task.spawn(Functions.ApplyESP, m, true) end end
 end
 
 task.spawn(Functions.ItemESP)
 
--- Toggle
+-- Toggle Logic (Z)
 UIS.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.Z then
-        _Flags["CanPlrESP"] = not _Flags["CanPlrESP"]
-        _Flags["CanTrinketESP"] = _Flags["CanPlrESP"]
-        if not _Flags["CanPlrESP"] then
-            for _, v in pairs(workspace:GetDescendants()) do
-                if v.Name == "ESPHighlight" or v.Name == "DistanceGui" or v.Name == "ItemHighlight" then
-                    v:Destroy()
-                end
-            end
-        else
-            if LiveFolder then
-                for _, m in pairs(LiveFolder:GetChildren()) do
-                    if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end
-                end
-            end
-            task.spawn(Functions.ItemESP)
+    if gpe or input.KeyCode ~= Enum.KeyCode.Z then return end
+    _Flags["CanPlrESP"] = not _Flags["CanPlrESP"]
+    _Flags["CanTrinketESP"] = _Flags["CanPlrESP"]
+    
+    if not _Flags["CanPlrESP"] then
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v.Name == "ESPHighlight" or v.Name == "DistanceGui" or v.Name == "ItemHighlight" then v:Destroy() end
         end
+    else
+        -- Re-run player and NPC ESP
+        for _, m in pairs(LiveFolder:GetChildren()) do if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end end
+        for _, m in pairs(NPCFolder:GetChildren()) do if TrackedNPCs[m.Name] then task.spawn(Functions.ApplyESP, m, true) end end
+        -- Re-run item ESP
+        task.spawn(Functions.ItemESP)
     end
 end)
