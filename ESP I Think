@@ -272,7 +272,7 @@ UIS.InputBegan:Connect(function(input, gpe)
         else
             for _, m in pairs(LiveFolder:GetChildren()) do if m:IsA("Model") then task.spawn(Functions.ApplyESP, m, false) end end
         end
-    elseif input.KeyCode == Enum.KeyCode.M then
+    elseif input.KeyCode == Enum.KeyCode.C then
         ScreenGui.Enabled = not ScreenGui.Enabled
         if ScreenGui.Enabled then
             updateSpectateList()
